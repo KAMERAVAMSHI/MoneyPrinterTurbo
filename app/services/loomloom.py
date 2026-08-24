@@ -18,12 +18,10 @@ from urllib.parse import quote, urlsplit
 import requests
 from loguru import logger
 
-
 DEFAULT_RESULT_PORT_NAME = "output"
 DEFAULT_BASE_URL = "https://loomloom.shengsuanyun.com/loom/v1"
 DEFAULT_SCRIPT_MARKET_LISTING_ID = "019fd618-9baa-73d9-94f4-c9270b6f3025"
-# 文案与视频是两个输入、产物结构完全不同的已上架 SkillBot。两个 ID 都是
-# MoneyPrinterTurbo 集成的内部常量，用户只需提供 API Key，不应接触 Listing ID。
+# Listing IDs for script and video SkillBots are internal constants.
 DEFAULT_VIDEO_MARKET_LISTING_ID = "019fd60d-5c26-78f7-bba0-5584f9ee7337"
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
 DEFAULT_POLL_INTERVAL_SECONDS = 2.0
@@ -36,14 +34,11 @@ MAX_VIDEO_SCENES = 5
 MAX_VIDEO_ARTIFACT_BYTES = 512 * 1024 * 1024
 TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "cancelled", "canceled"})
 
-
 class LoomLoomError(RuntimeError):
     """Base error for the LoomLoom integration."""
 
-
 class LoomLoomConfigurationError(LoomLoomError):
     """Raised when the integration is enabled without complete settings."""
-
 
 class LoomLoomAPIError(LoomLoomError):
     """Raised when the Public API rejects a request or returns invalid JSON."""
@@ -59,22 +54,16 @@ class LoomLoomAPIError(LoomLoomError):
         self.status_code = status_code
         self.retryable = retryable
 
-
 class LoomLoomRunError(LoomLoomError):
     """Raised when a submitted run fails or exceeds its wait timeout."""
 
-
 def resolve_api_token(values: Mapping[str, Any]) -> str:
     """
-    解析当前功能应使用的胜算云 API Key。
-
-    当大模型 Provider 已选择胜算云时，文案和视频必须复用设置页中的 Key；
-    其它 Provider 则继续使用 LoomLoom 独立 Key，避免改变既有用户配置。
+    Resolve API Key for Shengsuan Cloud / LoomLoom integration.
     """
     if str(values.get("llm_provider", "") or "").strip().lower() == "shengsuanyun":
         return str(values.get("shengsuanyun_api_key", "") or "").strip()
     return str(values.get("loomloom_api_token", "") or "").strip()
-
 
 @dataclass(frozen=True)
 class LoomLoomSettings:
@@ -97,8 +86,7 @@ class LoomLoomSettings:
             .strip()
             .rstrip("/"),
             api_token=resolve_api_token(values),
-            # MoneyPrinterTurbo 固定调用项目已经上架的默认 SkillBot。Listing ID
-            # 属于集成实现细节，不能要求普通用户在 config.toml 中重复配置。
+            # Default market listing ID for script generation SkillBot
             market_listing_id=DEFAULT_SCRIPT_MARKET_LISTING_ID,
             listing_version_id="",
             result_port_name=DEFAULT_RESULT_PORT_NAME,
@@ -149,18 +137,15 @@ class LoomLoomSettings:
             if value <= 0:
                 raise LoomLoomConfigurationError(f"{name} must be greater than zero")
 
-
 @dataclass(frozen=True)
 class LoomLoomScriptBatch:
     input_rows: tuple[dict[str, str], ...]
 
-
 @dataclass(frozen=True)
 class LoomLoomVideoBatch:
-    """默认 SkillBot 一次视频素材报价所包含的输入行。"""
+    """Input rows for default SkillBot video material quote."""
 
     input_rows: tuple[dict[str, str], ...]
-
 
 @dataclass(frozen=True)
 class LoomLoomQuote:
@@ -172,14 +157,12 @@ class LoomLoomQuote:
     estimated_buyer_payable_amount: str
     input_rows: tuple[dict[str, str], ...]
 
-
 @dataclass(frozen=True)
 class LoomLoomExecution:
     run_id: str
     transaction_id: str
     transaction_status: str
     listing_version_id: str
-
 
 @dataclass(frozen=True)
 class LoomLoomRun:
@@ -191,25 +174,21 @@ class LoomLoomRun:
     cancelled_tasks: int
     first_error_message: str
 
-
 @dataclass(frozen=True)
 class LoomLoomScriptCandidate:
     row_index: int
     script: str
     video_terms: tuple[str, ...]
 
-
 @dataclass(frozen=True)
 class LoomLoomCandidateError:
     row_index: int
     message: str
 
-
 @dataclass(frozen=True)
 class LoomLoomScriptBatchResult:
     candidates: tuple[LoomLoomScriptCandidate, ...]
     errors: tuple[LoomLoomCandidateError, ...]
-
 
 @dataclass(frozen=True)
 class LoomLoomConfirmedVideoRequest:
@@ -235,15 +214,13 @@ class LoomLoomConfirmedVideoRequest:
         if not str(self.client_request_id or "").strip():
             raise LoomLoomConfigurationError("video client request id is required")
 
-
 def video_settings_from_mapping(values: Mapping[str, Any]) -> LoomLoomSettings:
-    """使用项目内置的视频 SkillBot 创建客户端，并放宽视频任务等待时间。"""
+    """Create LoomLoom client using video SkillBot configuration."""
     settings = LoomLoomSettings.from_mapping(values)
     return LoomLoomSettings(
         base_url=settings.base_url,
         api_token=settings.api_token,
-        # 视频 Listing 接收 scenePrompt/aspectRatio/sceneIndex 并返回 MP4；不能
-        # 复用文案 Listing，否则报价阶段就会因输入 schema 不匹配而失败。
+        # Video Listing uses dedicated input schema.
         market_listing_id=DEFAULT_VIDEO_MARKET_LISTING_ID,
         listing_version_id=settings.listing_version_id,
         result_port_name=settings.result_port_name,
@@ -256,7 +233,6 @@ def video_settings_from_mapping(values: Mapping[str, Any]) -> LoomLoomSettings:
             )
         ),
     )
-
 
 class LoomLoomScriptBackend:
     """Execute one configured LoomLoom Market Listing for script candidates."""
@@ -374,9 +350,8 @@ class LoomLoomScriptBackend:
             except LoomLoomAPIError as exc:
                 if not exc.retryable or attempt >= MAX_EXECUTE_ATTEMPTS:
                     raise
-                # execute 是付费操作，不能生成新的请求 ID 后盲目重试。服务端以
-                # clientRequestId 保证幂等，因此这里只复用完全相同的载荷做有限
-                # 重试，用于恢复“服务端已接受、客户端未收到响应”的网络故障。
+                # Reuse clientRequestId for idempotent execution retries.
+                
                 retry_delay = min(float(attempt), MAX_POLL_RETRY_DELAY_SECONDS)
                 logger.warning(
                     "retry LoomLoom execute with the same client request id: "
@@ -447,8 +422,8 @@ class LoomLoomScriptBackend:
                 continue
             now = self._clock()
             progress = run.completed_tasks + run.failed_tasks + run.cancelled_tasks
-            # 远端视频任务可能持续数分钟。状态变化时立即记录，状态不变时每
-            # 30 秒记录一次心跳，既能帮助定位卡住位置，也避免两秒一次刷屏。
+            # Log periodic heartbeats for long-running video jobs.
+            
             if run.status != last_logged_status or now - last_progress_log_at >= 30:
                 logger.info(
                     "LoomLoom run progress: "
@@ -677,9 +652,8 @@ class LoomLoomScriptBackend:
                 f"LoomLoom response {name} must be an integer"
             ) from exc
 
-
 class LoomLoomVideoBackend(LoomLoomScriptBackend):
-    """通过默认 SkillBot 生成视频素材，并将 MP4 产物安全下载到任务目录。"""
+    """Generate video materials via default SkillBot and download MP4 outputs."""
 
     def prepare_video_batch(
         self,
@@ -817,9 +791,7 @@ class LoomLoomVideoBackend(LoomLoomScriptBackend):
         finally:
             if response is not None:
                 try:
-                    # stream=True 在大小校验失败或写盘异常时不会保证消费完整响应体。
-                    # 显式关闭可以立即归还或释放底层连接，避免连续失败逐步耗尽
-                    # Session 连接池；关闭失败只记录告警，不能覆盖原始下载异常。
+                    # Explicitly close streaming response on error to return connection to pool.
                     response.close()
                 except Exception as exc:
                     logger.warning(

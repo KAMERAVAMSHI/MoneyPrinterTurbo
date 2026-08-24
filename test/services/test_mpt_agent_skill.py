@@ -36,7 +36,7 @@ oneapi_model_name = ""
 
 class TestMptAgentSkill(unittest.TestCase):
     def create_project(self, root: Path) -> None:
-        """创建足够完成安装和配置检查的最小项目结构。"""
+        """Create minimal project layout for skill verification."""
         root.mkdir()
         (root / "cli.py").write_text("", encoding="utf-8")
         (root / "config.example.toml").write_text(
@@ -53,7 +53,7 @@ class TestMptAgentSkill(unittest.TestCase):
             return False
 
     def test_skill_runs_helper_from_its_working_directory(self):
-        """确保 Windows Agent 不会在命令中嵌入易被破坏的绝对路径。"""
+        """Ensure Windows Agent does not embed brittle absolute paths."""
         text = SKILL_DOCUMENT.read_text(encoding="utf-8")
 
         self.assertIn(
@@ -330,7 +330,7 @@ class TestMptAgentSkill(unittest.TestCase):
             self.assertEqual(command[-2:], ["--stop-at", "video"])
 
     def test_generation_failure_prints_original_model_error(self):
-        """生成失败时保留模型原始错误，避免 Skill 层猜测供应商语义。"""
+        """Preserve raw model error on failure."""
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             task_id = "12345678-1234-1234-1234-123456789abc"

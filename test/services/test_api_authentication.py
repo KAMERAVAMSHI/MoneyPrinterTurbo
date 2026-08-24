@@ -8,7 +8,7 @@ from app.config import config
 
 
 class TestAPIAuthenticationHTTP(unittest.TestCase):
-    """从真实 ASGI 入口验证 V1 API 的可选鉴权，覆盖两个业务路由组。"""
+    """Verify optional V1 API auth from ASGI entrypoint."""
 
     def setUp(self):
         self.original_app_config = dict(config.app)
@@ -19,7 +19,7 @@ class TestAPIAuthenticationHTTP(unittest.TestCase):
         config.app.update(self.original_app_config)
 
     def test_empty_key_preserves_existing_open_access(self):
-        """默认空 Key 不要求请求头，保证旧客户端和本地 WebUI 继续工作。"""
+        """Default empty key does not require header for backward compatibility."""
 
         config.app["api_key"] = ""
 
@@ -28,7 +28,7 @@ class TestAPIAuthenticationHTTP(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_video_routes_require_matching_key_when_configured(self):
-        """视频路由在启用保护后必须统一拒绝缺失和错误的 Key。"""
+        """Video routes reject missing or invalid keys when auth is enabled."""
 
         config.app["api_key"] = "video-secret"
 
@@ -47,12 +47,11 @@ class TestAPIAuthenticationHTTP(unittest.TestCase):
         self.assertEqual(accepted.status_code, 200)
 
     def test_llm_routes_authenticate_before_request_validation(self):
-        """LLM 路由必须先鉴权，未认证请求不得进入会产生费用的业务逻辑。"""
+        """LLM """
 
         config.app["api_key"] = "llm-secret"
 
-        # 请求模型提供了默认值，空请求也可能真实调用大模型。这里隔离外部
-        # 服务并核对调用次数，既验证鉴权顺序，也避免测试消耗用户的 API。
+        # API
         with patch(
             "app.controllers.v1.llm.llm.generate_script",
             return_value="mocked script",
@@ -69,7 +68,7 @@ class TestAPIAuthenticationHTTP(unittest.TestCase):
         generate_script.assert_called_once()
 
     def test_openapi_documents_api_key_header_for_v1_routes(self):
-        """Swagger 必须显示 x-api-key，避免启用保护后只能靠猜测请求格式。"""
+        """Swagger  x-api-key"""
 
         schema = self.client.get("/openapi.json").json()
         parameters = schema["paths"]["/api/v1/tasks"]["get"]["parameters"]
@@ -82,7 +81,6 @@ class TestAPIAuthenticationHTTP(unittest.TestCase):
         )
 
     def test_duplicate_api_key_headers_are_rejected(self):
-        """重复凭据的解释可能因代理不同而变化，因此无论顺序都必须拒绝。"""
 
         config.app["api_key"] = "video-secret"
 

@@ -26,7 +26,7 @@ resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resour
 
 
 class _FakeMoviePyClip:
-    """为最终混音单测提供最小 MoviePy 接口，避免 CI 真实编码大型视频。"""
+    """Mock MoviePy interface for audio mixing tests."""
 
     def __init__(self, *, duration=5, fps=44100):
         self.duration = duration
@@ -95,7 +95,7 @@ class TestVideoService(unittest.TestCase):
         warning.assert_not_called()
 
     def test_delete_files_logs_actionable_os_errors(self):
-        """权限等真实清理失败必须保留路径和系统错误，方便定位残留文件。"""
+        """Log path and error on cleanup failures."""
         with (
             patch.object(
                 vd.os,
@@ -112,7 +112,7 @@ class TestVideoService(unittest.TestCase):
         self.assertIn("permission denied", message)
 
     def test_generate_video_reports_successful_bgm_mix_and_closes_sources(self):
-        """BGM 混合成功后应返回 True，并释放所有原始文件 reader。"""
+        """Return True on successful BGM mix and close all readers."""
         params = vd.VideoParams(
             video_subject="test",
             subtitle_enabled=False,
@@ -154,7 +154,7 @@ class TestVideoService(unittest.TestCase):
         self.assertEqual(final_video.close_calls, 1)
 
     def test_generate_video_keeps_output_and_reports_failed_bgm_mix(self):
-        """BGM 打开失败时仍应只写一次无 BGM 视频，并返回 False。"""
+        """BGM  BGM  False"""
         params = vd.VideoParams(
             video_subject="test",
             subtitle_enabled=False,
@@ -197,7 +197,7 @@ class TestVideoService(unittest.TestCase):
         self.assertEqual(final_video.close_calls, 1)
 
     def test_generate_video_skips_every_bgm_source_when_volume_is_zero(self):
-        """0 音量必须在解析文件前统一短路当前来源和未来提供商。"""
+        """0 """
         test_cases = [
             ("random", None),
             ("custom", None),
@@ -255,7 +255,6 @@ class TestVideoService(unittest.TestCase):
                 self.assertEqual(final_video.close_calls, 1)
 
     def test_generate_video_chooses_looping_by_bgm_file_source(self):
-        """默认曲库需要循环，任务层提供的时长适配文件不应依赖提供商名称。"""
         test_cases = [
             ("random", None, True),
             ("custom", None, True),
@@ -403,7 +402,7 @@ class TestVideoService(unittest.TestCase):
             self.assertEqual(vd.get_bgm_file(bgm_file=temp_bgm.name), "")
 
     def test_get_ffmpeg_binary_uses_configured_env_path(self):
-        """配置中显式指定 ffmpeg 时，应优先使用该路径。"""
+        """ ffmpeg """
         with patch.dict(os.environ, {"IMAGEIO_FFMPEG_EXE": "/tmp/custom-ffmpeg"}, clear=True):
             self.assertEqual(utils.get_ffmpeg_binary(), "/tmp/custom-ffmpeg")
 
@@ -608,9 +607,9 @@ class TestVideoService(unittest.TestCase):
         和 ffmpeg 命令。项目服务层应屏蔽这类依赖库噪声，避免用户把
         `audio_found: False` 误判为最终视频没有音频。
         """
-        # 测试只关心服务层是否屏蔽 MoviePy 的读取噪声，不应长期保存一份由 PNG
-        # 编码而来的二进制 MP4 fixture。运行时生成短视频既能保持测试独立，也能
-        # 避免 fixture 因不同编码参数产生帧间闪烁后被误用于视觉效果验证。
+        # MoviePy  PNG
+        # MP4 fixture
+        # fixture
         image_path = os.path.join(resources_dir, "1.png")
         with tempfile.TemporaryDirectory() as temp_dir:
             video_path = os.path.join(temp_dir, "image-fixture.mp4")
@@ -706,7 +705,7 @@ class TestVideoService(unittest.TestCase):
         clip_speed,
         max_clip_duration=3,
     ):
-        """使用轻量假视频记录 combine_videos 实际读取的源时间范围。"""
+        """ combine_videos """
 
         source_ranges = []
         written_durations = []
@@ -726,8 +725,7 @@ class TestVideoService(unittest.TestCase):
                 self.records_source_range = records_source_range
 
             def subclipped(self, start_time, end_time):
-                # 只记录直接从源文件读取的范围。变速后的安全裁剪也会调用
-                # subclipped，但它不代表新的源时间段，不能混入断层判断。
+                # subclipped
                 if self.records_source_range:
                     source_ranges.append((start_time, end_time))
                 return _FakeVideoClip(end_time - start_time)
@@ -758,8 +756,7 @@ class TestVideoService(unittest.TestCase):
                     "_write_videofile_with_codec_fallback",
                     side_effect=_capture_written_clip,
                 ),
-                # random 模式默认会打乱同一源视频的切片。这里保持生成顺序，
-                # 才能精确验证相邻源时间段是否连续。
+                # random
                 patch.object(
                     vd,
                     "_prioritize_unique_source_clips",
@@ -780,7 +777,7 @@ class TestVideoService(unittest.TestCase):
         return source_ranges, written_durations
 
     def test_combine_videos_slow_speed_keeps_source_timeline_continuous(self):
-        """0.5 倍慢放应连续读取 1.5 秒源片段，不能跳过中间画面。"""
+        """0.5  1.5 """
 
         source_ranges, written_durations = self._capture_source_ranges_for_clip_speed(
             source_duration=4.0,
@@ -792,7 +789,7 @@ class TestVideoService(unittest.TestCase):
         self.assertEqual(written_durations, [3.0, 3.0])
 
     def test_combine_videos_fast_speed_reads_enough_source_content(self):
-        """2 倍快放应读取 6 秒源画面，使最终片段仍保持 3 秒。"""
+        """2  6  3 """
 
         source_ranges, written_durations = self._capture_source_ranges_for_clip_speed(
             source_duration=8.0,
@@ -865,7 +862,6 @@ class TestVideoService(unittest.TestCase):
         self.assertEqual(concat_mock.call_args.kwargs["max_duration"], 10.0)
 
     def test_concat_video_clips_limits_output_to_audio_duration(self):
-        """最终拼接时应裁到音频时长，避免安全余量带来明显静音尾巴。"""
 
         def fake_run(command, capture_output, text, check):
             return types.SimpleNamespace(returncode=0, stdout="", stderr="")

@@ -82,7 +82,7 @@ class TestCli(unittest.TestCase):
         log_error.assert_called_once()
 
     def test_run_cli_returns_error_for_structured_task_failure(self):
-        """任务服务返回结构化失败信息时，CLI 仍必须以非零状态退出。"""
+        """CLI exits with non-zero code on task failure."""
         failure = {
             "task_id": "task-structured-failure",
             "state": -1,
@@ -331,7 +331,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
 
     def test_positive_volume_custom_bgm_requires_file_before_task_start(self):
-        """启用自定义 BGM 时仍必须在任务启动前报告缺少文件。"""
+        """Report missing custom BGM file before task starts."""
         with (
             patch("app.services.task.start") as start,
             patch.object(cli.logger, "error") as log_error,
@@ -361,7 +361,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(args.bgm_type, "custom")
 
     def test_zero_volume_custom_bgm_skips_file_requirement_and_resolution(self):
-        """0 音量应忽略缺失或无效文件，与 WebUI 和视频服务保持一致。"""
+        """Zero volume ignores missing or invalid BGM files."""
         file_arguments = [[], ["--bgm-file", "missing-background.mp3"]]
         for extra_arguments in file_arguments:
             with self.subTest(extra_arguments=extra_arguments):
@@ -389,7 +389,7 @@ class TestCli(unittest.TestCase):
                 self.assertEqual(params.bgm_file, "")
 
     def test_custom_bgm_reuses_service_formats_and_managed_path_resolution(self):
-        """CLI 必须跟随 BGM 服务的格式白名单，不能继续单独限制为 MP3。"""
+        """CLI  BGM  MP3"""
         from app.services import bgm as bgm_service
 
         for extension in bgm_service.SUPPORTED_BGM_EXTENSIONS:
@@ -418,7 +418,7 @@ class TestCli(unittest.TestCase):
                 self.assertEqual(params.bgm_file, resolved_path)
 
     def test_custom_bgm_reports_service_resolution_failure_before_task_start(self):
-        """非法格式或越界路径应转换为包含统一格式范围的 CLI 错误。"""
+        """ CLI """
         from app.services import bgm as bgm_service
 
         args = cli.parse_args(
@@ -581,7 +581,6 @@ class TestCli(unittest.TestCase):
         self.assertIn("exit with 2", help_text)
 
     def test_help_does_not_initialize_application_or_write_logs(self):
-        """帮助命令应独立于业务配置加载，便于用户查看和脚本采集。"""
         project_root = Path(__file__).parent.parent.parent
         result = subprocess.run(
             [sys.executable, str(project_root / "cli.py"), "--help"],

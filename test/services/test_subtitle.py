@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-# 测试文件直接运行时，也能从仓库根目录导入 app 包。
+# Support running test standalone from repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.services import subtitle
@@ -13,7 +13,7 @@ from app.services import subtitle
 
 class TestSubtitleService(unittest.TestCase):
     def test_file_to_subtitles_returns_empty_for_missing_input(self):
-        """空路径和不存在的文件都应安全返回空列表。"""
+        """Return empty list for non-existent subtitle paths."""
         self.assertEqual(subtitle.file_to_subtitles(""), [])
         with tempfile.TemporaryDirectory() as tmp_dir:
             missing_file = Path(tmp_dir) / "missing.srt"
@@ -31,12 +31,11 @@ class TestSubtitleService(unittest.TestCase):
         self.assertLess(subtitle.similarity("hello", "world"), 0.5)
 
     def test_create_returns_empty_when_whisper_is_unavailable(self):
-        """可选 Whisper 依赖未安装时应跳过，而不是在任务线程中抛异常。"""
+        """Skip Whisper tests when optional dependency is missing."""
         with patch.object(subtitle, "WhisperModel", None):
             self.assertEqual(subtitle.create("audio.mp3"), "")
 
     def test_create_returns_none_when_whisper_model_cannot_load(self):
-        """模型下载或初始化失败时必须返回失败结果，并允许任务层更新状态。"""
         with patch.object(subtitle, "model", None), patch.object(
             subtitle,
             "WhisperModel",

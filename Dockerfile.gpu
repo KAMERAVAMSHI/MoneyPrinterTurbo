@@ -10,9 +10,8 @@ RUN chmod 777 /MoneyPrinterTurbo
 
 ENV PYTHONPATH="/MoneyPrinterTurbo"
 
-# 安装链中的任何前置步骤失败都必须终止构建。只有删除系统自带 blinker
-# 属于可忽略操作，因此把容错限制在该子命令的括号内，避免末尾的
-# `|| true` 把 apt、PPA、Python 或 pip 安装失败一并转换成成功状态。
+# Any preceding failure in the installation chain must terminate the build.
+# The removal of system blinker is optional and isolated in a subshell.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         software-properties-common \
         git \
@@ -50,6 +49,5 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 8501
 
-# 容器内部必须监听 0.0.0.0，宿主机仍通过 docker 端口映射限制为 127.0.0.1。
-# browser.serverAddress 只决定浏览器展示的访问地址，不能替代 server.address。
+# The container must listen on 0.0.0.0, while the host binds to 127.0.0.1 via Docker port mapping.
 CMD ["streamlit", "run", "./webui/Main.py", "--server.address=0.0.0.0", "--server.port=8501", "--browser.serverAddress=127.0.0.1", "--server.enableCORS=True", "--browser.gatherUsageStats=False", "--client.toolbarMode=minimal", "--logger.hideWelcomeMessage=True", "--server.showEmailPrompt=False"]

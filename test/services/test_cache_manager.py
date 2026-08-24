@@ -8,7 +8,7 @@ from app.services import cache_manager
 
 
 class TestVideoCacheManager(unittest.TestCase):
-    """验证缓存管理只处理受控文件，并按元数据完成轻量统计与清理。"""
+    """Verify cache manager only processes managed files."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -46,7 +46,7 @@ class TestVideoCacheManager(unittest.TestCase):
         try:
             symlink_path.symlink_to(self.cache_dir / "personal.mp4")
         except (OSError, NotImplementedError):
-            # Windows 未开启开发者模式时创建符号链接可能没有权限，不影响其余断言。
+            # Skip symlink permission checks if unsupported on Windows.
             pass
 
         with patch.object(cache_manager.time, "time", return_value=now):

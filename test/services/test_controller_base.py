@@ -99,7 +99,7 @@ class TestControllerAuthentication(unittest.TestCase):
         self.assertNotIn("forged-log-entry", logged_warning)
 
     def test_verify_token_accepts_matching_key(self):
-        """配置了 API Key 时，相同请求头必须正常通过鉴权。"""
+        """Matching header passes authentication when key is set."""
         config.app["api_key"] = "secret"
 
         result = base.verify_token(self._request({"x-api-key": "secret"}))
@@ -107,7 +107,7 @@ class TestControllerAuthentication(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_verify_token_allows_requests_when_key_is_not_configured(self):
-        """未配置 Key 时必须保留历史免认证行为，避免本地升级后中断。"""
+        """Unconfigured key maintains open access."""
 
         config.app.pop("api_key", None)
         self.assertIsNone(base.verify_token(self._request()))
@@ -137,7 +137,7 @@ class TestControllerAuthentication(unittest.TestCase):
                 self.assertEqual(raised.exception.message, "invalid API key")
 
     def test_verify_token_rejects_non_string_configuration(self):
-        """非字符串配置应明确报错，且错误中不得暴露配置内容。"""
+        """Non-string config raises error without leaking values."""
 
         config.app["api_key"] = ["unexpected", "value"]
 
@@ -151,7 +151,7 @@ class TestControllerAuthentication(unittest.TestCase):
         )
 
     def test_verify_token_handles_unicode_without_server_error(self):
-        """非 ASCII Header 不得触发 compare_digest TypeError 或返回 500。"""
+        """ ASCII Header  compare_digest TypeError  500"""
 
         config.app["api_key"] = "密钥-é"
         self.assertIsNone(base.verify_token(self._request({"x-api-key": "密钥-é"})))
@@ -162,7 +162,7 @@ class TestControllerAuthentication(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 401)
 
     def test_new_router_preserves_common_prefix_and_dependencies(self):
-        """所有 V1 路由都应复用统一前缀，并仅在传入时设置鉴权依赖。"""
+        """ V1 """
         dependency = object()
 
         plain_router = new_router()

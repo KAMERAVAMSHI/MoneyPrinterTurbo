@@ -54,9 +54,9 @@ class TestVoiceService(unittest.TestCase):
 
     def test_get_all_azure_voices(self):
         voices = vs.get_all_azure_voices()
-        # 数据已从内联字符串迁移到 azure_voices.json，确保仍能完整加载
+        # Verify voice loading from azure_voices.json.
         self.assertEqual(len(voices), 331)
-        # 结果应为 "Name-Gender" 格式且已排序
+        # Expected 'Name-Gender' sorted format.
         self.assertEqual(voices, sorted(voices))
         for v in voices:
             self.assertTrue(v.endswith("-Male") or v.endswith("-Female"))
@@ -142,7 +142,7 @@ class TestVoiceService(unittest.TestCase):
                 mock_afc.assert_called_once_with(path)
 
     def test_get_audio_duration_missing_file_returns_zero(self):
-        """音频文件不存在时安全返回 0，而不是抛异常或读取失败。"""
+        """Return 0 when audio file does not exist."""
         with patch.object(vs.os.path, "exists", return_value=False):
             self.assertEqual(vs.get_audio_duration("does-not-exist.m4a"), 0.0)
 
@@ -210,9 +210,8 @@ class TestVoiceService(unittest.TestCase):
         "MPT_RUN_INTEGRATION_TESTS not set",
     )
     def test_siliconflow(self):
-        # SiliconFlow 的 API Key 存在 [siliconflow].api_key 中，运行时代码也是从
-        # config.siliconflow 读取；这里必须使用同一配置源，避免正确配置凭据时
-        # 测试仍然被误跳过。
+        # SiliconFlow  API Key  [siliconflow].api_key
+        # config.siliconflow
         if not vs.config.siliconflow.get("api_key"):
             self.skipTest("siliconflow_api_key is not configured")
 
@@ -223,10 +222,10 @@ class TestVoiceService(unittest.TestCase):
             parts = voice_name.split(":")
             if len(parts) >= 3:
                 model = parts[1]
-                # 移除性别后缀，例如 "alex-Male" -> "alex"
+                # "alex-Male" -> "alex
                 voice_with_gender = parts[2]
                 voice = voice_with_gender.split("-")[0]
-                # 构建完整的voice参数，格式为 "model:voice"
+                # voice "model:voice
                 full_voice = f"{model}:{voice}"
                 voice_file = f"{temp_dir}/tts-siliconflow-{voice}.mp3"
                 subtitle_file = f"{temp_dir}/tts-siliconflow-{voice}.srt"
@@ -395,7 +394,7 @@ class TestVoiceService(unittest.TestCase):
         self.loop.run_until_complete(_do())
 
     def test_azure_tts_v2_ssml_applies_rate_and_escapes_text(self):
-        """Azure V2 必须通过 SSML 应用语速，并避免用户文案破坏 XML。"""
+        """Azure V2  SSML  XML"""
         ssml = vs._build_azure_v2_ssml(
             text='A < B & "quoted"',
             voice_name="zh-CN-XiaoxiaoMultilingualNeural",
@@ -407,7 +406,7 @@ class TestVoiceService(unittest.TestCase):
         self.assertIn("A &lt; B &amp; \"quoted\"", ssml)
 
     def test_tts_forwards_rate_to_azure_v2(self):
-        """统一 TTS 入口不能在分发 Azure V2 时丢失 voice_rate。"""
+        """ TTS  Azure V2  voice_rate"""
         voice_name = "zh-CN-XiaoxiaoMultilingualNeural-V2-Female"
         with patch.object(vs, "azure_tts_v2", return_value=object()) as mock_tts:
             result = vs.tts(
@@ -426,7 +425,7 @@ class TestVoiceService(unittest.TestCase):
         )
 
     def test_tts_strips_gemini_style_metadata_before_dispatch(self):
-        """Gemini 下拉框的官方风格描述不能成为 API voice_name 的一部分。"""
+        """Gemini  API voice_name """
         sentinel = object()
 
         with patch.object(vs, "gemini_tts", return_value=sentinel) as gemini_tts:
@@ -679,7 +678,7 @@ class TestVoiceService(unittest.TestCase):
         self.assertEqual(captured["json"]["audio_setting"]["format"], "mp3")
 
     def test_minimax_tts_reuses_cn_llm_key_and_endpoint(self):
-        """TTS 未单独配置时，应复用同区域的 MiniMax LLM 凭证和地址。"""
+        """TTS  MiniMax LLM """
         class _Response:
             status_code, text = 200, ""
 
@@ -720,7 +719,7 @@ class TestVoiceService(unittest.TestCase):
         self.assertEqual(captured["headers"]["Authorization"], "Bearer shared-cn-key")
 
     def test_get_minimax_voice_catalog_normalizes_all_voice_types(self):
-        """音色查询应统一不同来源的响应结构，并忽略重复或空 Voice ID。"""
+        """ Voice ID"""
 
         class _Response:
             status_code, text = 200, ""
@@ -777,7 +776,6 @@ class TestVoiceService(unittest.TestCase):
         )
 
     def test_get_minimax_voice_catalog_exposes_provider_error(self):
-        """远端业务错误应明确抛出，不能被伪装成账号没有可用音色。"""
 
         class _Response:
             status_code, text = 200, ""
@@ -796,7 +794,6 @@ class TestVoiceService(unittest.TestCase):
                 vs.get_minimax_voice_catalog(api_key="invalid-key")
 
     def test_minimax_tts_does_not_leave_invalid_audio_output(self):
-        """响应音频无法解析时，不应覆盖已有文件或留下临时文件。"""
         class _Response:
             status_code, text = 200, ""
 
@@ -1028,8 +1025,7 @@ class TestVoiceService(unittest.TestCase):
         script_lines = utils.split_string_by_punctuations(text)
         cues = []
         for index, line in enumerate(script_lines):
-            # Edge 的 cue content 经常没有脚本里的空格和标点布局，这里去掉空格
-            # 来模拟更严格的匹配场景。
+            # Edge  cue content
             cues.append(
                 SimpleNamespace(
                     content=line.replace(" ", ""),
@@ -1183,8 +1179,8 @@ class TestVoiceService(unittest.TestCase):
         self.assertEqual(vs.convert_rate_to_percent(0.8), "-20%")
 
     def test_convert_rate_to_percent_invalid_values_default_to_normal(self):
-        # API 和批处理脚本可能把空语速传成 0、None 或空字符串；这些都不应让
-        # edge-tts 收到 -100% 或触发异常，而是按正常语速处理。
+        # API  0None
+        # edge-tts  -100%
         self.assertEqual(vs.convert_rate_to_percent(0), "+0%")
         self.assertEqual(vs.convert_rate_to_percent(0.0), "+0%")
         self.assertEqual(vs.convert_rate_to_percent(None), "+0%")
@@ -1269,8 +1265,8 @@ class TestElevenLabsVoice(unittest.TestCase):
     @patch("app.services.voice.config")
     def test_elevenlabs_tts_no_api_key(self, mock_config):
         mock_config.elevenlabs.get.return_value = ""
-        # Key 解析包含环境变量回退，测试必须显式清空宿主环境，避免开发机或 CI
-        # 恰好设置 ELEVENLABS_API_KEY 后改变“未配置”的测试前提。
+        # Key  CI
+        # ELEVENLABS_API_KEY “
         with patch.dict(os.environ, {}, clear=True):
             result = vs.elevenlabs_tts("Hello", "abc123", "/tmp/test.mp3")
         self.assertIsNone(result)
@@ -1296,7 +1292,7 @@ class TestElevenLabsVoice(unittest.TestCase):
             self.assertEqual(vs.get_elevenlabs_api_key(), "env-key")
 
     def test_elevenlabs_api_key_matches_music_service(self):
-        """TTS 和配乐共用同一账号配置，两条生成链路必须解析出相同 Key。"""
+        """TTS  Key"""
         from app.services import elevenlabs_music
 
         for configured_key, env_key in (("config-key", "env-key"), ("", "env-key")):
