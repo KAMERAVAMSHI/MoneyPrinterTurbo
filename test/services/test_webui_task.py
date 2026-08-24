@@ -23,7 +23,7 @@ WEBUI_MAIN = ROOT_DIR / "webui" / "Main.py"
 
 
 def _attribute_name(node):
-    """把 ``module.function`` 形式的 AST 调用还原为稳定字符串。"""
+    """Convert AST call to string representation."""
     names = []
     while isinstance(node, ast.Attribute):
         names.append(node.attr)
@@ -143,7 +143,7 @@ def test_webui_runtime_config_updates_do_not_use_blocking_writes():
 def test_completed_task_renders_subject_named_video_download(
     tmp_path, ui_config, expected_open_count
 ):
-    """完成任务应提供成片下载，并按 WebUI 配置决定是否自动打开目录。"""
+    """Render download button and handle open folder preference."""
     tree = ast.parse(WEBUI_MAIN.read_text(encoding="utf-8"))
     selected_nodes = []
     target_names = {
@@ -244,7 +244,7 @@ def test_completed_task_renders_subject_named_video_download(
 
 
 def test_submit_generation_returns_while_pipeline_is_still_running():
-    """后台流水线未结束时，提交函数必须已经返回，让 Streamlit 完成本次渲染。"""
+    """Submit function returns while background worker runs."""
     task_id = "background-submit-test"
     started = threading.Event()
     release = threading.Event()
@@ -282,7 +282,7 @@ def test_submit_generation_returns_while_pipeline_is_still_running():
 
 
 def test_submit_generation_copies_params_before_starting_worker():
-    """页面后续 rerun 或流水线内部修改参数时，不能反向污染当前表单对象。"""
+    """ rerun """
     params = VideoParams(video_subject="参数隔离测试")
     with patch.object(webui_task._task_manager, "add_task") as add_task:
         webui_task.submit_generation("copied-params-test", params, capture_logs=False)
@@ -294,7 +294,7 @@ def test_submit_generation_copies_params_before_starting_worker():
 
 
 def test_scheduling_failure_is_saved_as_terminal_task_state():
-    """队列或线程启动失败时不能让任务管理器永久停留在“生成中”。"""
+    """“"""
     task_id = "scheduling-failure-test"
     params = VideoParams(video_subject="调度失败测试")
     with patch.object(
@@ -313,7 +313,6 @@ def test_scheduling_failure_is_saved_as_terminal_task_state():
 
 
 def test_worker_logs_are_available_without_streamlit_session_state():
-    """后台日志写入线程安全缓存，页面只需轮询快照即可恢复实时日志。"""
     task_id = "captured-log-test"
     with webui_task._task_logs_lock:
         webui_task._task_logs.pop(task_id, None)
@@ -348,7 +347,6 @@ def test_worker_logs_are_available_without_streamlit_session_state():
 
 
 def test_generation_log_fragment_refreshes_within_half_a_second():
-    """日志轮询间隔不能退回到明显落后于终端输出的秒级刷新。"""
     assert webui_task.TASK_LOG_REFRESH_INTERVAL_SECONDS <= 0.5
 
     tree = ast.parse(WEBUI_MAIN.read_text(encoding="utf-8"))
@@ -420,7 +418,7 @@ def test_generation_submit_skips_duplicate_config_save():
 
 
 def test_terminal_logger_reload_preserves_task_log_handler():
-    """热重载只能替换终端 handler，不能清空后台任务的日志 sink。"""
+    """ handler sink"""
     previous_handler_id = logging_utils._terminal_handler_id
     try:
         with (
@@ -443,7 +441,6 @@ def test_terminal_logger_reload_preserves_task_log_handler():
 
 
 def test_worker_wrapper_failure_is_saved_instead_of_leaving_processing_state():
-    """日志或配置包装层异常也必须转换成可查询的失败终态。"""
     task_id = "worker-wrapper-failure-test"
     with (
         patch.object(webui_task.tm, "start", side_effect=RuntimeError("lock failed")),

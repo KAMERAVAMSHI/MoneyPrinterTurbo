@@ -11,7 +11,7 @@ from app.utils import utils
 
 
 class TestCheckFfmpegReady(unittest.TestCase):
-    """覆盖 utils.check_ffmpeg_ready() 的四种探测结果。"""
+    """Cover four detection outcomes of check_ffmpeg_ready."""
 
     def test_returns_true_when_ffmpeg_probe_succeeds(self):
         completed = subprocess.CompletedProcess(args=["ffmpeg", "-version"], returncode=0)

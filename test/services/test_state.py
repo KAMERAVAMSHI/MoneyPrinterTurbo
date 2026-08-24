@@ -118,7 +118,7 @@ class TestMemoryState(unittest.TestCase):
         self.assertEqual(len(tasks), total)
 
     def test_patch_task_preserves_generated_outputs(self):
-        """异步发布更新不能覆盖已经完成的视频任务字段。"""
+        """Async publishing updates do not overwrite video fields."""
         state = MemoryState()
         state.update_task(
             "task-1",
@@ -194,7 +194,7 @@ class TestRedisState(unittest.TestCase):
         "MPT_TEST_REDIS_HOST not set",
     )
     def test_real_redis_get_all_tasks_ignores_queue_keys(self):
-        """真实 Redis 中的 List 队列不能被任务列表误当作 Hash 读取。"""
+        """Scan only Hash records in Redis task list."""
         state = RedisState(
             host=os.environ["MPT_TEST_REDIS_HOST"],
             port=int(os.getenv("MPT_TEST_REDIS_PORT", "6379")),
@@ -242,7 +242,7 @@ class TestRedisState(unittest.TestCase):
         "MPT_TEST_REDIS_HOST not set",
     )
     def test_real_redis_patch_and_delete_are_atomic(self):
-        """真实 Redis 中并发删除和局部更新不能重新创建残缺任务。"""
+        """Concurrent delete and update do not revive deleted tasks."""
         state = RedisState(
             host=os.environ["MPT_TEST_REDIS_HOST"],
             port=int(os.getenv("MPT_TEST_REDIS_PORT", "6379")),
@@ -269,8 +269,7 @@ class TestRedisState(unittest.TestCase):
                 barrier.wait()
                 state.delete_task(task_id)
 
-            # Future.result() 会把工作线程异常重新抛到测试线程，避免 Redis
-            # 命令实际失败但仅打印线程异常、最终仍被误判为测试通过。
+            # Future.result()  Redis
             with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = [
                     executor.submit(patch_task),

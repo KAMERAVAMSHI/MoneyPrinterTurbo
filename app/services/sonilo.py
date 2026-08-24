@@ -27,11 +27,11 @@ VIDEO_TO_MUSIC_SERVICE_ID = "video_to_music"
 
 
 class SoniloError(RuntimeError):
-    """表示 Sonilo 请求、响应协议或生成音频校验失败。"""
+    """Indicates Sonilo request, response protocol, or generated audio validation failure."""
 
 
 def get_api_key() -> str:
-    """优先读取 WebUI 保存的配置，未配置时允许使用环境变量。"""
+    """Read API Key from config, falling back to environment variable."""
     configured_key = str(config.app.get("sonilo_api_key", "") or "").strip()
     return configured_key or os.getenv("SONILO_API_KEY", "").strip()
 
@@ -49,7 +49,7 @@ def _base_url() -> str:
 
 
 def _request_timeout() -> tuple[int, int]:
-    """限制配置值范围，避免无穷大或负数让请求永久挂起或立即失败。"""
+    """Limit timeout range to prevent hanging requests."""
     raw_timeout = config.app.get("sonilo_timeout", 600)
     try:
         read_timeout = float(raw_timeout)
@@ -57,33 +57,23 @@ def _request_timeout() -> tuple[int, int]:
         read_timeout = 600
     if not math.isfinite(read_timeout) or read_timeout <= 0:
         read_timeout = 600
-    # Requests 不接受 0 秒读取超时。向上取整既保留小数配置的有效含义，也能
-    # 避免 0.1~0.9 被 int() 截断为 0 后抛出未进入 Sonilo 降级链路的 ValueError。
     return 15, max(1, math.ceil(min(read_timeout, 1800)))
 
 
 def _normalize_service_id(service_id: str) -> str:
-    """
-    将 Sonilo 服务标识统一为项目内部使用的下划线格式。
-
-    2026-07-14 实际接口返回 ``video_to_music``，但同日公开文档示例使用
-    ``video-to-music``。差异仅在单词分隔符，因此在第三方协议边界统一格式，
-    避免 UI 连接测试因提供方文档与生产响应暂时不一致而误报失败。
-    """
+    """Normalize Sonilo service identifier to internal underscore format."""
     return service_id.strip().lower().replace("-", "_")
 
 
 def _safe_response_error(response: requests.Response) -> str:
-    """仅保留简短响应信息，既方便定位又避免异常页面污染日志。"""
+    """Retain short response error summary for clean logging."""
     body = (response.text or "").strip().replace("\n", " ")[:500]
     return body or response.reason or "request failed"
 
 
 def test_connection() -> dict[str, Any]:
     """
-    使用不消耗配乐额度的服务列表接口验证 API Key。
-
-    返回原始 JSON 便于 UI 展示可用服务，但日志中绝不记录 Key 或请求头。
+    Validate API key using the lightweight services endpoint without consuming music quota.
     """
     api_key = get_api_key()
     if not api_key:
@@ -122,7 +112,7 @@ def test_connection() -> dict[str, Any]:
 
 
 def _remove_file(file_path: str) -> None:
-    """尽力清理 Sonilo 中间文件，不覆盖调用方正在处理的原始异常。"""
+    """Clean up intermediate files on error."""
     if not file_path or not os.path.exists(file_path):
         return
     try:
@@ -201,7 +191,7 @@ def _create_video_proxy(video_path: str) -> str:
 
 
 def _parse_event(raw_line: bytes) -> dict[str, Any]:
-    """严格解析单条 NDJSON，禁止静默忽略截断或非对象响应。"""
+    """Strictly parse single NDJSON line."""
     try:
         event = json.loads(raw_line.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -269,7 +259,7 @@ def _stream_audio(response: requests.Response, temp_audio_path: str) -> tuple[in
 
 
 def _request_bgm(video_path: str, output_path: str, prompt: str) -> str:
-    """请求配乐并在完整协议及音频校验通过后原子保存。"""
+    """Request music and atomically save after validation."""
     output_dir = os.path.dirname(os.path.abspath(output_path))
     os.makedirs(output_dir, exist_ok=True)
     descriptor, temp_audio_path = tempfile.mkstemp(
@@ -301,8 +291,7 @@ def _request_bgm(video_path: str, output_path: str, prompt: str) -> str:
                         )
                     total_bytes, title = _stream_audio(response, temp_audio_path)
         except requests.RequestException as exc:
-            # iter_lines() 期间的网络中断同样属于 requests 异常，不能只捕获
-            # 建立连接阶段，否则半条音频可能让任务直接异常退出而无法降级。
+            # Network interruptions during iter_lines() trigger fallback logic.
             raise SoniloError(f"failed to request Sonilo music: {exc}") from exc
 
         try:
@@ -326,7 +315,7 @@ def generate_bgm(
     video_duration: float,
     prompt: str = "",
 ) -> str:
-    """为一条已拼接视频生成时长匹配的 Sonilo 背景音乐。"""
+    """Generate duration-matched Sonilo background music for a video clip."""
     if not get_api_key():
         raise SoniloError("Sonilo API key is required")
     if not os.path.isfile(video_path):
@@ -350,8 +339,7 @@ def generate_bgm(
     except SoniloError:
         raise
     except OSError as exc:
-        # 临时目录、代理文件和最终原子替换都可能发生文件系统错误。统一转换为
-        # SoniloError，任务编排层才能按设计降级为“无背景音乐”并保留成片。
+        # Wrap filesystem errors into SoniloError for clean fallback to 'no music'.
         raise SoniloError(f"Sonilo local file operation failed: {exc}") from exc
     finally:
         _remove_file(proxy_path)

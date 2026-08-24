@@ -10,7 +10,6 @@ from app.services import video
 
 class TestSubtitleBackgroundSettings(unittest.TestCase):
     def test_subtitle_background_is_disabled_by_default(self):
-        """新任务和独立字幕接口都不应在用户未指定时渲染字幕背景。"""
         video_params = VideoParams(video_subject="default subtitle background")
         subtitle_request = SubtitleRequest(video_script="default subtitle background")
 
@@ -83,8 +82,8 @@ class TestSubtitleBackgroundSettings(unittest.TestCase):
         )
 
         self.assertEqual(x, 0)
-        # 可见像素高度为 34px，放在 93px 容器中应上下各约 29px；
-        # 因为 mask 顶部从 12px 开始，所以 TextClip 本身需要向上移动到 18px。
+        # 34px 93px  29px
+        # mask  12px  TextClip  18px
         self.assertEqual(y, 18)
 
     def test_detects_indistinguishable_subtitle_colors(self):

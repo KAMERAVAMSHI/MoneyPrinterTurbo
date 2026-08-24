@@ -257,7 +257,7 @@ class TestMaterialTlsVerification(unittest.TestCase):
             )
 
     def test_video_aspect_matching_rejects_unknown_dimensions(self):
-        """无法确认方向的素材不能进入严格的横竖屏候选列表。"""
+        """Exclude orientation-mismatched candidates."""
         self.assertTrue(
             material._matches_video_aspect(
                 1080,
@@ -303,7 +303,7 @@ class TestMaterialTlsVerification(unittest.TestCase):
         )
 
     def test_coverr_passes_orientation_filter_to_remote_search(self):
-        """Coverr 横竖屏搜索应在服务端筛选，方形素材继续使用本地尺寸校验。"""
+        """Server-side filter for Coverr orientation."""
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.proxy.clear()
         fake_response = SimpleNamespace(json=lambda: {"hits": []})
@@ -755,7 +755,7 @@ class TestMaterialTlsVerification(unittest.TestCase):
         )
 
     def test_material_source_persistence_failure_does_not_break_download(self):
-        """辅助任务记录失败时，已经下载成功的素材仍应正常返回给成片主流程。"""
+        """Downloaded assets succeed even if provenance record fails."""
         item = material.MaterialInfo(
             provider="pexels",
             url="https://v.example/a1.mp4",
@@ -864,7 +864,7 @@ class TestCoverrProvider(unittest.TestCase):
         item = results[0]
         self.assertEqual(item.provider, "coverr")
         self.assertEqual(item.duration, 11)
-        # url 字段就是 mp4_download URL,不再做 coverr://id|url 编码
+        # url  mp4_download URL, coverr://id|url
         self.assertEqual(
             item.url, "https://storage.coverr.co/videos/abc/download?token=xyz"
         )
@@ -884,7 +884,7 @@ class TestCoverrProvider(unittest.TestCase):
         self.assertTrue(get.call_args.kwargs["verify"])
 
     def test_search_coverr_uses_tls_verification_by_default(self):
-        """与 pexels/pixabay 一致:未显式配置时 TLS 校验默认开启。"""
+        """ pexels/pixabay : TLS """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
         config.proxy.clear()
@@ -899,7 +899,7 @@ class TestCoverrProvider(unittest.TestCase):
         self.assertTrue(get.call_args.kwargs["verify"])
 
     def test_search_coverr_allows_explicit_tls_disable_for_proxy(self):
-        """企业自签证书代理场景必须能显式关闭 TLS 校验。"""
+        """ TLS """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app["tls_verify"] = False
         config.proxy.clear()
@@ -951,7 +951,7 @@ class TestCoverrProvider(unittest.TestCase):
         self.assertEqual(results[0].url, "https://example.com/b.mp4")
 
     def test_search_coverr_skips_invalid_items(self):
-        """缺 id 或缺 urls.mp4_download 的条目应被跳过,不应抛异常。"""
+        """ id  urls.mp4_download """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
         config.proxy.clear()
@@ -1059,13 +1059,13 @@ class TestCoverrProvider(unittest.TestCase):
         # 1. dispatch
         self.assertEqual(search.call_count, 1)
 
-        # 2. save_video 收到的就是 mp4_download URL,原样传入
+        # 2. save_video  mp4_download URL
         save_url = save.call_args.kwargs.get("video_url") or save.call_args.args[0]
         self.assertEqual(
             save_url, "https://storage.coverr.co/videos/abc/download?token=xyz"
         )
 
-        # 3. 返回值正确
+        # 3.
         self.assertEqual(result, ["/tmp/coverr-saved.mp4"])
 
 
@@ -1134,12 +1134,12 @@ class TestWaveSpeedProvider(unittest.TestCase):
         self.assertEqual(len(results), 1)
         item = results[0]
         self.assertEqual(item.provider, "wavespeed")
-        # 签名 URL 必须原样保留,查询参数不能被剥离,否则下载会 403
+        # URL ,, 403
         self.assertEqual(item.url, "https://cdn.example.com/out.mp4?sig=abc")
         self.assertEqual(item.duration, 5)
         self.assertEqual(item.source_info["asset_id"], "pred-123")
         self.assertEqual(item.source_info["search_term"], "sunrise over mountains")
-        # 生成产物地址是临时签名 URL,不允许写入来源记录
+        # URL
         self.assertNotIn("source_page", item.source_info)
 
         self.assertIn(
@@ -1160,11 +1160,11 @@ class TestWaveSpeedProvider(unittest.TestCase):
         )
         self.assertTrue(post.call_args.kwargs["verify"])
         self.assertIn("/api/v3/predictions/pred-123/result", get.call_args.args[0])
-        # processing 状态下必须等待轮询间隔,不能空转打满远端接口
+        # processing
         self.assertEqual(sleep.call_count, 1)
 
     def test_generate_wavespeed_uses_configured_model_id(self):
-        """用户可以在配置中切换任意 WaveSpeed 文生视频模型。"""
+        """ WaveSpeed """
         config.app["wavespeed_text_to_video_model"] = "wavespeed-ai/custom-t2v"
         submit_response = self._json_response({"code": 200, "data": {"id": "pred-9"}})
         poll_response = self._json_response(
@@ -1195,7 +1195,7 @@ class TestWaveSpeedProvider(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["json"]["aspect_ratio"], "16:9")
 
     def test_generate_wavespeed_returns_empty_on_failed_prediction(self):
-        """failed/cancelled/timeout 都按空结果返回,让上层跳过该关键词继续。"""
+        """failed/cancelled/timeout """
         submit_response = self._json_response({"code": 200, "data": {"id": "pred-fail"}})
         poll_response = self._json_response(
             {
@@ -1217,7 +1217,7 @@ class TestWaveSpeedProvider(unittest.TestCase):
         self.assertEqual(results, [])
 
     def test_generate_wavespeed_returns_empty_on_rejected_submission(self):
-        """非 200 envelope(如 key 无效)不能进入轮询,直接返回空结果。"""
+        """ 200 envelope( key """
         submit_response = self._json_response({"code": 401, "message": "invalid api key"})
 
         with (
@@ -1244,7 +1244,7 @@ class TestWaveSpeedProvider(unittest.TestCase):
         self.assertEqual(post.call_count, 1)
 
     def test_generate_wavespeed_treats_server_error_submission_as_unconfirmed(self):
-        """5xx 可能发生在任务创建之后,状态不明,不能当作"没扣费"继续。"""
+        """5xx """
         submit_response = SimpleNamespace(
             status_code=502, json=lambda: {"code": 502, "message": "bad gateway"}
         )
@@ -1288,12 +1288,12 @@ class TestWaveSpeedProvider(unittest.TestCase):
             results = material.generate_videos_wavespeed("sunrise", minimum_duration=5)
 
         self.assertEqual(len(results), 1)
-        # 只提交一次;三次 GET 全部指向同一个 prediction id
+        # ; GET  prediction id
         self.assertEqual(post.call_count, 1)
         self.assertEqual(get.call_count, 3)
         for call in get.call_args_list:
             self.assertIn("/api/v3/predictions/pred-r1/result", call.args[0])
-        # 线性退避:第 n 次重试等待 base * n
+        # : n  base * n
         self.assertEqual([call.args[0] for call in sleep.call_args_list], [1.0, 2.0])
 
     def test_generate_wavespeed_raises_unconfirmed_after_poll_retries_exhausted(self):
@@ -1318,7 +1318,6 @@ class TestWaveSpeedProvider(unittest.TestCase):
         self.assertEqual(get.call_count, material.WAVESPEED_MAX_POLL_RETRIES + 1)
 
     def test_generate_wavespeed_raises_unconfirmed_on_local_wait_timeout(self):
-        """本地等待超时,远端任务仍在运行,状态不明,不能继续提交新任务。"""
         submit_response = self._json_response({"code": 200, "data": {"id": "pred-r3"}})
         processing = self._json_response(
             {"code": 200, "data": {"id": "pred-r3", "status": "processing"}}
@@ -1371,7 +1370,7 @@ class TestWaveSpeedProvider(unittest.TestCase):
                 max_clip_duration=5,
             )
 
-        # term-2 抛出状态不明后立即停止,term-3 不能再产生生成请求
+        # term-2 ,term-3
         self.assertEqual(generate.call_count, 2)
         self.assertEqual(result, ["/tmp/1.mp4"])
 
@@ -1405,7 +1404,6 @@ class TestWaveSpeedProvider(unittest.TestCase):
             )
 
         self.assertEqual(result, ["/tmp/1.mp4"])
-        # 重试打在同一个地址上,且没有触发第二次付费生成
         self.assertEqual(save.call_count, 2)
         self.assertEqual(generate.call_count, 1)
         for call in save.call_args_list:
@@ -1480,11 +1478,10 @@ class TestWaveSpeedProvider(unittest.TestCase):
             results = material.generate_videos_wavespeed("sunrise", minimum_duration=3)
 
         self.assertEqual(post.call_args.kwargs["json"]["duration"], 4)
-        # MaterialInfo 记录实际生成时长,时长核算和剪辑按真实素材长度进行
+        # MaterialInfo
         self.assertEqual(results[0].duration, 4)
 
     def test_generate_wavespeed_clamps_duration_to_model_maximum(self):
-        """超过模型上限的请求收敛到上限,不能提交必然失败的远端请求。"""
         submit_response = self._json_response({"code": 200, "data": {"id": "pred-c2"}})
         poll_response = self._json_response(
             {
@@ -1509,7 +1506,6 @@ class TestWaveSpeedProvider(unittest.TestCase):
         self.assertEqual(results[0].duration, 15)
 
     def test_generate_wavespeed_duration_bounds_are_configurable(self):
-        """切换到其它模型时,用户可以在配置中同步调整支持的时长区间。"""
         config.app["wavespeed_min_duration"] = 2
         config.app["wavespeed_max_duration"] = 8
         submit_response = self._json_response({"code": 200, "data": {"id": "pred-c3"}})
@@ -1580,7 +1576,7 @@ class TestWaveSpeedProvider(unittest.TestCase):
                 max_clip_duration=5,
             )
 
-        # 5s + 5s > 8s,第三个关键词不能再产生付费生成请求
+        # 5s + 5s > 8s
         self.assertEqual(generate.call_count, 2)
         self.assertEqual(
             [call.kwargs["search_term"] for call in generate.call_args_list],
@@ -1620,12 +1616,11 @@ class TestWaveSpeedProvider(unittest.TestCase):
                 max_clip_duration=5,
             )
 
-        # 5s + 5s == 10s,恰好覆盖,第 3 段绝不能生成
+        # 5s + 5s == 10s,, 3
         self.assertEqual(generate.call_count, 2)
         self.assertEqual(result, ["/tmp/1.mp4", "/tmp/2.mp4"])
 
     def test_download_videos_wavespeed_skips_failed_segment_and_continues(self):
-        """单个片段生成失败(空结果)时跳过该关键词,继续为后续片段生成。"""
         generated = {
             "term-1": [],
             "term-2": [self._generated_item("term-2", "https://cdn.example.com/2.mp4")],

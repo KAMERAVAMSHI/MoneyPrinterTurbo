@@ -58,7 +58,7 @@ get_unmet_restore_upload_requirements = TASK_HISTORY_NAMESPACE[
 
 
 def test_find_final_task_video_ignores_intermediate_files(tmp_path):
-    """任务历史只能把 final 成片识别为完成，不能使用合成中间文件。"""
+    """Task history identifies final video as completion."""
     for file_name in (
         "combined-1.mp4",
         "temp-clip-1.mp4",
@@ -70,7 +70,7 @@ def test_find_final_task_video_ignores_intermediate_files(tmp_path):
 
 
 def test_find_final_task_video_returns_first_numbered_output(tmp_path):
-    """多成片任务与运行时结果保持一致，默认播放序号最小的最终视频。"""
+    """Default to first final video in multi-video tasks."""
     (tmp_path / "final-10.mp4").touch()
     (tmp_path / "final-2.mp4").touch()
     (tmp_path / "final-1.mp4").touch()
@@ -126,7 +126,7 @@ def test_restore_requirements_allow_explicit_replacements():
 
 
 def test_restore_requirements_require_file_in_upload_voice_mode():
-    """恢复上传配音任务时，继续使用上传模式必须重新选择音频文件。"""
+    """Require re-upload on task restore in upload mode."""
     requirements = build_restore_upload_requirements(
         {
             "video_source": "pexels",
@@ -146,7 +146,6 @@ def test_restore_requirements_require_file_in_upload_voice_mode():
 
 
 def test_restore_requirements_allow_replacing_upload_with_other_voice_modes():
-    """用户主动切换到自动配音或无配音时，不再强制恢复历史上传文件。"""
     requirements = build_restore_upload_requirements(
         {
             "video_source": "pexels",

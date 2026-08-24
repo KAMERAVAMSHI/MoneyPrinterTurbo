@@ -8,7 +8,7 @@ from app.services import elevenlabs_music
 
 
 class _StreamingResponse:
-    """提供 ElevenLabs 配乐服务实际使用的最小 Response 接口。"""
+    """Minimal Response mock for ElevenLabs music service."""
 
     def __init__(
         self,
@@ -94,7 +94,7 @@ class TestElevenLabsMusicService(unittest.TestCase):
             self.assertEqual(elevenlabs_music.get_api_key(), "env-key")
 
     def test_model_and_timeout_reject_invalid_configuration(self):
-        """第三方请求配置异常时必须回退安全默认值，不能让任务直接崩溃。"""
+        """Fallback to safe defaults on misconfigured third-party requests."""
         test_cases = [
             ({"music_model_id": "music_v1"}, "music_v1", (15, 600)),
             (
@@ -269,7 +269,7 @@ class TestElevenLabsMusicService(unittest.TestCase):
         self.assertIn("inconclusive", str(warning.call_args))
 
     def test_connection_rejects_free_plan_before_music_generation(self):
-        """免费套餐不支持 Music API，应在上传视频前给出明确错误。"""
+        """Free tier does not support Music API; fail fast before video upload."""
         response = _StreamingResponse(payload={"tier": "free"})
         with (
             patch.object(
@@ -443,8 +443,8 @@ class TestElevenLabsMusicService(unittest.TestCase):
                 post.call_args.kwargs["params"]["output_format"],
                 "mp3_44100_128",
             )
-            # 生产接口实际接收 ``videos``；使用文档示例中的 ``videos[]`` 会
-            # 返回 422 Field required，因此测试固定真实可用的协议字段。
+            # ``videos`` ``videos[]``
+            # 422 Field required
             self.assertEqual(post.call_args.kwargs["files"][0][0], "videos")
             self.assertEqual(post.call_args.kwargs["stream"], True)
             self.assertEqual(

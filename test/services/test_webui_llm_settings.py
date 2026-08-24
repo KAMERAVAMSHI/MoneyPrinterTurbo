@@ -21,7 +21,7 @@ def _widget_by_key(elements, key):
 
 
 def test_kimi_platform_selection_keeps_endpoint_configuration_consistent():
-    """Kimi 平台切换必须同步 Base URL，并只允许自定义模式编辑地址。"""
+    """Sync Base URL on Kimi endpoint switch."""
     app_config = dict(
         config.app,
         llm_provider="moonshot",
@@ -67,7 +67,7 @@ def test_kimi_platform_selection_keeps_endpoint_configuration_consistent():
         )
         assert china_base_url.value == "https://api.moonshot.cn/v1"
         assert china_base_url.disabled is True
-        # 中国站是 Registry 的兼容默认值，不应重复写入用户配置。
+        # China endpoint is default compatible value.
         assert app_config["moonshot_base_url"] == ""
 
         endpoint_select = _widget_by_key(

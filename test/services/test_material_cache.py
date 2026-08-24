@@ -120,7 +120,7 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertFalse(cache_path.exists())
 
     def test_future_dated_cache_is_removed_and_treated_as_miss(self):
-        """系统时间异常时不能让未来时间戳绕过 24 小时有效期。"""
+        """Invalidate future timestamps in cache."""
         material_cache.save_material_search_cache(
             provider="pixabay",
             search_term="nature",
@@ -206,7 +206,7 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertNotIn("token=drop", raw_payload)
 
     def test_coverr_signed_urls_are_never_cached(self):
-        """Coverr 下载地址包含签名 JWT，不能进入可长期保留的磁盘缓存。"""
+        """Do not cache signed Coverr JWT URLs."""
         item = self._item(
             "https://storage.coverr.co/video/download?token=signed-jwt"
         )
@@ -225,7 +225,7 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertEqual(list(Path(self.temp_dir.name).glob("*.json")), [])
 
     def test_coverr_cache_load_removes_legacy_signed_url(self):
-        """访问 Coverr 时应清理旧版本可能留下的签名下载地址缓存。"""
+        """Clean up stale Coverr signed URL cache entries."""
         cache_path = material_cache._cache_path(
             provider="coverr",
             search_term="nature",
@@ -259,7 +259,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertFalse(cache_path.exists())
 
     def test_version_one_cache_is_invalidated(self):
-        """旧缓存缺少来源信息，升级后必须重新查询而不能生成残缺任务记录。"""
         cache_path = self._cache_path()
         cache_path.write_text(
             json.dumps(
@@ -394,7 +393,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         )
 
     def test_square_search_reuses_crop_compatible_cache(self):
-        """方形任务应继续复用可裁剪素材缓存，不能因原始方向不同反复请求远端。"""
         landscape_item = self._item("https://example.com/landscape.mp4")
         landscape_item.source_info["rendition"] = {
             "id": "large",
@@ -425,7 +423,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         )
 
     def test_search_wrapper_retries_after_empty_result(self):
-        """空结果不缓存，下一次调用仍应访问远端，以便临时故障恢复后自动重试。"""
         remote_search = Mock(return_value=[])
 
         for _ in range(2):
@@ -441,7 +438,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertEqual(remote_search.call_count, 2)
 
     def test_cache_read_failure_falls_back_to_remote_search(self):
-        """缓存读取异常只能降级为未命中，不能阻断远端素材搜索。"""
         remote_items = [self._item()]
         remote_search = Mock(return_value=remote_items)
 
@@ -463,7 +459,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertTrue(warning.called)
 
     def test_cache_write_failure_keeps_remote_results(self):
-        """远端搜索成功后，即使缓存写入失败也必须继续返回可用素材。"""
         remote_items = [self._item()]
         remote_search = Mock(return_value=remote_items)
 
@@ -489,7 +484,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertTrue(warning.called)
 
     def test_invalid_cache_item_does_not_raise(self):
-        """异常素材对象不能让可选缓存写入破坏调用方主流程。"""
         with patch.object(material_cache.logger, "warning") as warning:
             saved = material_cache.save_material_search_cache(
                 provider="pixabay",
@@ -537,7 +531,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         first_thread.start()
         self.assertTrue(remote_started.wait(timeout=2))
         second_thread.start()
-        # 给第二个线程时间进入缓存锁等待区，确保测试覆盖真实并发未命中。
         time.sleep(0.05)
         allow_remote_finish.set()
         first_thread.join(timeout=2)
@@ -550,7 +543,6 @@ class TestMaterialSearchCache(unittest.TestCase):
         self.assertEqual(results[0], results[1])
 
     def test_cleanup_removes_expired_entries_only(self):
-        """低频清理只删除过期缓存，不应影响有效缓存或用户的其它文件。"""
         stale_path = self._cache_path()
         stale_path.write_text(
             json.dumps(

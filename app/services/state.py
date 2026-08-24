@@ -36,7 +36,7 @@ class BaseState(ABC):
 
     @abstractmethod
     def patch_task(self, task_id: str, **kwargs) -> bool:
-        """只更新已有任务的指定字段；任务不存在时返回 False。"""
+        """Update only specified fields of an existing task; return False if task does not exist."""
         pass
 
 
@@ -79,9 +79,8 @@ class MemoryState(BaseState):
             return copy.deepcopy(task) if task is not None else None
 
     def patch_task(self, task_id: str, **kwargs) -> bool:
-        # 异步发布只应补充发布状态，不能覆盖已经保存的视频、字幕等结果。
-        # 在同一把锁内完成存在性判断和字段合并，也可避免任务删除后
-        # 被后台线程重建。
+        # Asynchronous updates should only supplement publishing state without overwriting results.
+        # Checking existence and merging fields within the lock avoids reviving deleted tasks.
         with self._lock:
             task = self._tasks.get(task_id)
             if task is None:
@@ -118,9 +117,7 @@ class RedisState(BaseState):
         cursor = 0
         total = 0
         while True:
-            # Redis 数据库中除了任务 Hash，还可能存在 RedisTaskManager 使用的
-            # List 队列。只扫描 Hash 可以避免对队列执行 HGETALL 时触发
-            # WRONGTYPE，同时保证 total 只统计真正的任务记录。
+            # Scan only HASH types to avoid hitting RedisTaskManager's List queue.
             cursor, keys = self._redis.scan(
                 cursor,
                 count=page_size,
@@ -130,9 +127,7 @@ class RedisState(BaseState):
             batch_size = len(keys)
             total += batch_size
 
-            # Redis SCAN 是分批返回 key。分页切片必须基于“当前批次起始索引”
-            # 计算，而不能用累积后的 total 反推，否则第一页会切到空数组，
-            # 第二页也可能只返回部分数据。
+            # Slice keys based on current batch starting index.
             if batch_start < end and total > start:
                 slice_start = max(0, start - batch_start)
                 slice_end = min(batch_size, end - batch_start)
@@ -144,8 +139,7 @@ class RedisState(BaseState):
                     }
                     tasks.append(task)
 
-            # 即使当前页已经取满，也要继续 SCAN 到 cursor=0，
-            # 因为调用方需要准确 total 来渲染分页信息。
+            # Continue scanning until cursor == 0 for exact total count.
             if cursor == 0:
                 break
         return tasks, total
@@ -190,9 +184,7 @@ class RedisState(BaseState):
         for field, value in kwargs.items():
             arguments.extend((field, str(value)))
 
-        # EXISTS 和 HSET 如果分成两条命令，后台发布线程与删除请求并发时，
-        # HSET 可能在删除后重新创建一条残缺任务。Lua 脚本由 Redis 原子执行，
-        # 可以保证任务不存在时不写入，且不会改变现有字段之外的数据。
+        # Atomically check and update task state via Lua script to avoid recreating deleted tasks.
         updated = self._redis.eval(
             _PATCH_EXISTING_TASK_SCRIPT,
             1,

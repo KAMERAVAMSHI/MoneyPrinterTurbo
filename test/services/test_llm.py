@@ -130,7 +130,7 @@ class TestScriptPromptOptions(unittest.TestCase):
         self.assertIn("开头更有悬念", captured["prompt"])
 
     def test_generate_script_reuses_submitted_config_snapshot(self):
-        """WebUI 后台任务结束后应用新配置，不能改变正在重试的模型请求。"""
+        """Background task config updates do not mutate in-flight retry requests."""
         captured = {}
         app_config = {
             "llm_provider": "openai",
@@ -218,7 +218,7 @@ class TestScriptPromptOptions(unittest.TestCase):
 
 class TestLLMConnection(unittest.TestCase):
     def test_connection_sends_one_minimal_request(self):
-        """连接测试只发送一次固定最小请求，不触发脚本生成重试。"""
+        """Connection test sends minimal prompt without triggering script retries."""
         with (
             patch.object(llm, "_generate_response", return_value="OK") as generate,
             patch.object(llm, "perf_counter", side_effect=[10.0, 10.25]),
@@ -229,7 +229,7 @@ class TestLLMConnection(unittest.TestCase):
         self.assertEqual(result, (True, "", 0.25))
 
     def test_connection_returns_provider_error(self):
-        """Provider 返回错误时应保留可诊断信息，并报告本次请求耗时。"""
+        """Preserve diagnostic error details and elapsed time on failure."""
         with (
             patch.object(
                 llm,
@@ -243,7 +243,6 @@ class TestLLMConnection(unittest.TestCase):
         self.assertEqual(result, (False, "invalid API key", 0.5))
 
     def test_connection_rejects_empty_response(self):
-        """极端情况下的空响应应显示明确错误，而不是误报连接成功。"""
         with (
             patch.object(llm, "_generate_response", return_value=""),
             patch.object(llm, "perf_counter", side_effect=[30.0, 31.0]),
@@ -262,7 +261,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         config.app.update(self.original_app_config)
 
     def test_current_default_model_names(self):
-        """WebUI 与服务层必须共享同一组默认模型，避免展示值和请求值漂移。"""
+        """WebUI """
         self.assertEqual(get_llm_provider("openai").default_model, "gpt-5.5")
         anthropic = get_llm_provider("anthropic")
         self.assertEqual(anthropic.default_model, "claude-sonnet-5")
@@ -287,7 +286,6 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertEqual(pollinations.adapter, "openai_compatible")
 
     def test_provider_defaults_are_not_persisted_as_user_overrides(self):
-        """默认值只用于运行和展示，只有不同值才应写入用户配置。"""
         self.assertEqual(
             normalize_provider_override("gpt-5.5", "gpt-5.5"),
             "",
@@ -302,7 +300,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         )
 
     def test_provider_registry_has_unique_stable_ids(self):
-        """Registry 是 Provider 列表的唯一数据源，ID 必须唯一且默认项存在。"""
+        """Registry  Provider ID """
         provider_ids = [provider.provider_id for provider in LLM_PROVIDER_REGISTRY]
 
         self.assertEqual(len(provider_ids), len(set(provider_ids)))
@@ -310,7 +308,6 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertIn(DEFAULT_LLM_PROVIDER_ID, LLM_PROVIDERS)
 
     def test_provider_registry_preserves_product_group_order(self):
-        """下拉顺序按推荐、原厂、聚合平台、本地部署和其它服务排列。"""
         self.assertEqual(
             [provider.provider_id for provider in LLM_PROVIDER_REGISTRY],
             [
@@ -357,7 +354,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         )
 
     def test_provider_registry_uses_conventional_locale_and_config_keys(self):
-        """统一命名规则可避免 WebUI 为每个 Provider 增加硬编码映射。"""
+        """ WebUI  Provider """
         for provider in LLM_PROVIDER_REGISTRY:
             self.assertEqual(
                 provider.label_key,
@@ -373,7 +370,6 @@ class TestLiteLLMProvider(unittest.TestCase):
             )
 
     def test_registry_replaces_deprecated_provider_models(self):
-        """历史默认模型应自动迁移，避免升级后继续使用已移除的接入语义。"""
         cloudflare = get_llm_provider("cloudflare")
         gemini = get_llm_provider("gemini")
 
@@ -405,7 +401,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         )
 
     def test_provider_tip_templates_accept_registry_defaults(self):
-        """所有语言的 Provider 提示模板都必须能安全注入 Registry 默认值。"""
+        """ Provider  Registry """
         i18n_dir = Path(__file__).parent.parent.parent / "webui" / "i18n"
         for locale_file in i18n_dir.glob("*.json"):
             translations = json.loads(locale_file.read_text(encoding="utf-8"))[
@@ -435,7 +431,7 @@ class TestLiteLLMProvider(unittest.TestCase):
                 self.assertNotIn("{default_base_url}", rendered)
 
     def test_primary_provider_tips_use_consistent_structure(self):
-        """中英文配置说明统一展示 API Key、Base URL 和模型名称。"""
+        """ API KeyBase URL """
         i18n_dir = Path(__file__).parent.parent.parent / "webui" / "i18n"
         for language in ("zh", "en"):
             translations = json.loads(
@@ -455,7 +451,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertIn("视频创作链路匹配", zh_kimi_tips)
 
     def test_required_api_key_providers_have_clickable_entry_points(self):
-        """需要密钥的 Provider 必须提供统一申请入口，避免 WebUI 只给出文字。"""
+        """ Provider  WebUI """
         i18n_dir = Path(__file__).parent.parent.parent / "webui" / "i18n"
         locale_translations = {
             locale_file.stem: json.loads(locale_file.read_text(encoding="utf-8"))[
@@ -503,7 +499,7 @@ class TestLiteLLMProvider(unittest.TestCase):
                     )
 
     def test_service_endpoint_registry_references_valid_stable_ids(self):
-        """服务区域必须通过唯一稳定 ID 关联，不能依赖链接或展示文案。"""
+        """ ID """
         for provider in LLM_PROVIDER_REGISTRY:
             endpoint_ids = [
                 endpoint.endpoint_id for endpoint in provider.service_endpoints
@@ -523,7 +519,7 @@ class TestLiteLLMProvider(unittest.TestCase):
                 self.assertIn(provider.international_service_endpoint_id, endpoint_ids)
 
     def test_kimi_service_endpoint_selection_preserves_existing_configs(self):
-        """已有 Kimi 配置不能因界面语言变化而被静默切换到另一套账号体系。"""
+        """ Kimi """
         provider = get_llm_provider("moonshot")
 
         china = provider.select_service_endpoint(
@@ -548,7 +544,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         )
 
     def test_kimi_fresh_config_uses_interface_region(self):
-        """新配置按界面语言推荐站点，但仍由用户在 WebUI 中明确选择。"""
+        """ WebUI """
         provider = get_llm_provider("moonshot")
 
         china = provider.select_service_endpoint(
@@ -567,7 +563,6 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertIn("platform.kimi.ai", global_endpoint.api_key_url)
 
     def test_kimi_endpoint_selection_does_not_depend_on_marketing_url(self):
-        """更新推广参数不能改变国际站的业务选择结果。"""
         provider = get_llm_provider("moonshot")
         global_endpoint = replace(
             provider.international_service_endpoint,
@@ -591,7 +586,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertEqual(selected.api_key_url, global_endpoint.api_key_url)
 
     def test_example_config_does_not_duplicate_registry_defaults(self):
-        """示例配置只保存用户覆盖值，默认模型和地址由 Registry 唯一维护。"""
+        """ Registry """
         config_path = Path(__file__).parent.parent.parent / "config.example.toml"
         app_config = tomllib.loads(config_path.read_text(encoding="utf-8"))["app"]
 
@@ -617,7 +612,7 @@ class TestLiteLLMProvider(unittest.TestCase):
                     )
 
     def test_removed_ernie_provider_is_unsupported(self):
-        """移除 ERNIE 后，遗留配置应返回明确错误，不再发起旧 OAuth 请求。"""
+        """ ERNIE  OAuth """
         config.app["llm_provider"] = "ernie"
 
         with patch.object(llm, "OpenAI") as openai_client:
@@ -627,7 +622,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertIn("unsupported llm provider", result)
 
     def test_pollinations_requires_api_key_before_request(self):
-        """新统一 API 要求鉴权，缺少 Key 时不得发送匿名生成请求。"""
+        """ API  Key """
         config.app.update(
             {
                 "llm_provider": "pollinations",
@@ -644,7 +639,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertIn("api_key is not set", result)
 
     def test_pollinations_uses_unified_openai_compatible_api(self):
-        """历史地址和模型名应自动迁移，并通过统一 Chat Completions API 调用。"""
+        """ Chat Completions API """
         config.app.update(
             {
                 "llm_provider": "pollinations",
@@ -686,7 +681,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertEqual(result, "hello\npollinations")
 
     def test_anthropic_uses_openai_compatible_chat_completions(self):
-        """Claude 走 Anthropic 的 OpenAI 兼容端点，不需要额外适配器分支。"""
+        """Claude  Anthropic  OpenAI """
         config.app.update(
             {
                 "llm_provider": "anthropic",
@@ -728,7 +723,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertEqual(result, "hello\nclaude")
 
     def test_gemini_uses_google_genai_client(self):
-        """Gemini 适配器应通过新版 SDK 的统一 Client 发起内容生成请求。"""
+        """Gemini  SDK  Client """
         config.app.update(
             {
                 "llm_provider": "gemini",
@@ -769,7 +764,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertTrue(captured["closed"])
 
     def test_cloudflare_requires_account_id_before_request(self):
-        """Cloudflare 缺少 Account ID 时应在本地失败，不发送无效请求。"""
+        """Cloudflare  Account ID """
         config.app.update(
             {
                 "llm_provider": "cloudflare",
@@ -786,7 +781,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertIn("account_id is not set", result)
 
     def test_cloudflare_uses_ai_gateway_openai_endpoint(self):
-        """Cloudflare Provider 必须走 AI Gateway，不再调用 Workers AI 接口。"""
+        """Cloudflare Provider  AI Gateway Workers AI """
         config.app.update(
             {
                 "llm_provider": "cloudflare",
@@ -1034,7 +1029,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertEqual(result, "你好\n世界")
 
     def test_qwen_provider_falls_back_to_output_text(self):
-        """保留旧 DashScope completion 响应结构的兼容路径。"""
+        """ DashScope completion """
         self._use_qwen_provider()
         response = {"output": {"text": "旧格式\n响应"}}
 
@@ -1044,7 +1039,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertEqual(result, "旧格式\n响应")
 
     def test_qwen_provider_reports_empty_text(self):
-        """Qwen 空响应应返回可诊断错误，而不是底层 AttributeError。"""
+        """Qwen  AttributeError"""
         self._use_qwen_provider()
         response = {
             "output": {"text": None, "choices": [{"message": {"content": None}}]}
@@ -1058,7 +1053,7 @@ class TestLiteLLMProvider(unittest.TestCase):
         self.assertNotIn("NoneType", result)
 
     def test_qwen_provider_reports_empty_choices(self):
-        """Qwen chat 响应 choices 为空时应返回明确错误。"""
+        """Qwen chat  choices """
         self._use_qwen_provider()
         response = {"output": {"text": None, "choices": []}}
 
@@ -1544,7 +1539,6 @@ class TestRuntimeEnvironmentDetection(unittest.TestCase):
 
 
 class TestSocialMetadata(unittest.TestCase):
-    """通用短视频发布文案元数据生成。"""
 
     def test_build_prompt_auto_language_uses_source_language(self):
         """

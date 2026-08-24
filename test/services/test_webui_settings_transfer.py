@@ -40,7 +40,7 @@ SETTINGS_TRANSFER_CONSTANTS = {
 
 
 class _FakeStreamlit:
-    """只提供 _apply_key_backup 需要的 session_state 字典。"""
+    """Mock session_state for key backup tests."""
 
     def __init__(self):
         self.session_state = {}
@@ -77,8 +77,8 @@ def _load_settings_transfer_helpers():
         "json": json,
         "VideoParams": VideoParams,
         "LLM_PROVIDER_REGISTRY": LLM_PROVIDER_REGISTRY,
-        # _apply_key_backup 写配置并清理控件状态，两者都由测试替身记录，
-        # 这样可以验证真实实现而不需要启动 Streamlit 会话。
+        # Apply key backup and clean widget state.
+        # Streamlit
         "st": _FakeStreamlit(),
         "_set_runtime_config": _record_runtime_config,
     }
@@ -326,7 +326,6 @@ def test_credential_widget_state_keys_match_settings_inputs():
 
 
 def test_credential_widget_state_keys_cover_shared_input_aliases():
-    """音频面板为同一份密钥提供了第二个输入框，别名必须一起返回。"""
     assert credential_widget_state_keys("app", "gemini_api_key") == (
         "gemini_api_key_input",
         "gemini_tts_api_key_input",
@@ -372,7 +371,7 @@ def test_apply_key_backup_writes_config_and_clears_every_widget_alias():
         ("azure", "speech_key", "new-azure"),
         ("azure", "speech_region", "westeurope"),
     ]
-    # 每一个别名控件状态都必须消失，否则旧密钥会在下一次 rerun 写回配置。
+    # rerun
     assert FAKE_STREAMLIT.session_state == {"video_subject": "untouched"}
 
 
